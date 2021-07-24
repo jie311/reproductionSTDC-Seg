@@ -25,7 +25,7 @@ class ConvBNReLU(nn.Module):
                               padding=padding,
                               bias=False)
         # self.bn = BatchNorm2d(out_chan)
-        self.bn = nn.BatchNorm2d(out_chan, activation='none')
+        self.bn = nn.BatchNorm2d(out_chan)
         self.relu = nn.ReLU()
         self.init_weight()
     
@@ -78,7 +78,7 @@ class AttentionRefinementModule(nn.Module):
         self.conv = ConvBNReLU(in_chan, out_chan, ks=3, stride=1, padding=1)
         self.conv_atten = nn.Conv2d(out_chan, out_chan, kernel_size=1, bias=False)
         # self.bn_atten = BatchNorm2d(out_chan)
-        self.bn_atten = nn.BatchNorm2d(out_chan, activation='none')
+        self.bn_atten = nn.BatchNorm2d(out_chan)
         
         self.sigmoid_atten = nn.Sigmoid()
         self.init_weight()
