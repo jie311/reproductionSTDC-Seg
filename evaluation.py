@@ -37,10 +37,14 @@ class MscEvalV0(object):
         else:
             diter = enumerate(tqdm(dl))
         for i, (imgs, label) in diter:
-            N, _, H, W = label.shape
+            # 这里在测试中莫名奇妙的包了一层1,
+            N, _, H, W, _ = label.shape
             
             label = label.squeeze(1).cuda()
-            size = label.size()[-2:]
+            # 转换一下维度
+            label = label[:, :, :, 0]
+            # 如上述所言
+            size = label.size()[-3:-1]
             
             imgs = imgs.cuda()
             
@@ -78,7 +82,7 @@ def evaluatev0(respth='./pretrained', dspth='./data', backbone='CatNetSmall', sc
     ## dataset
     batchsize = 5
     n_workers = 2
-    dsval = CityScapes(dspth, mode='test')
+    dsval = CityScapes(dspth, mode='val')
     dl = DataLoader(dsval,
                     batch_size=batchsize,
                     shuffle=False,
