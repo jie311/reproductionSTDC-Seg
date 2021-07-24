@@ -78,7 +78,7 @@ def evaluatev0(respth='./pretrained', dspth='./data', backbone='CatNetSmall', sc
     ## dataset
     batchsize = 5
     n_workers = 2
-    dsval = CityScapes(dspth, mode='val')
+    dsval = CityScapes(dspth, mode='test')
     dl = DataLoader(dsval,
                     batch_size=batchsize,
                     shuffle=False,
