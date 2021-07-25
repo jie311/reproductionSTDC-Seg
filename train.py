@@ -146,7 +146,7 @@ def train():
     save_pth_path = os.path.join(args.respath, 'pths')
     dspth = './data'
     
-    # print(save_pth_path)
+    print(save_pth_path)
     # print(osp.exists(save_pth_path))
     # if not osp.exists(save_pth_path) and dist.get_rank()==0: 
     if not osp.exists(save_pth_path):
@@ -187,7 +187,7 @@ def train():
     
     # CityScapes数据处理,dspth根目录，cropsize裁剪大小,mode读取的数据，'train', 'val', 'test', 'trainval',随机裁剪
     ds = CityScapes(dspth, cropsize=cropsize, mode=mode, randomscale=randomscale)
-    # 分布式处理
+    # 分布式训练数据集处理
     sampler = torch.utils.data.distributed.DistributedSampler(ds)
     dl = DataLoader(ds,
                     batch_size=n_img_per_gpu,
@@ -326,7 +326,7 @@ def train():
         
         loss.backward()
         optim.step()
-        
+        # 添加loss数据
         loss_avg.append(loss.item())
         
         loss_boundery_bce.append(boundery_bce_loss.item())
@@ -370,7 +370,7 @@ def train():
             # print(boundary_loss_func.get_params())
         if (it + 1) % save_iter_sep == 0:  # and it != 0:
             
-            ## model
+            ## 验证model
             logger.info('evaluating the model ...')
             logger.info('setup and restore model')
             
