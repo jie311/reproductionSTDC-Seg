@@ -154,12 +154,12 @@ def train():
     
     torch.cuda.set_device(args.local_rank)
     # 分布式训练使用TCP
-    dist.init_process_group(
-        backend='nccl',
-        init_method='tcp://127.0.0.1:33274',
-        world_size=torch.cuda.device_count(),
-        rank=args.local_rank
-    )
+    # dist.init_process_group(
+    #     backend='nccl',
+    #     init_method='tcp://127.0.0.1:33274',
+    #     world_size=torch.cuda.device_count(),
+    #     rank=args.local_rank
+    # )
     
     setup_logger(args.respath)
     ## dataset
@@ -176,34 +176,33 @@ def train():
     cropsize = [1024, 512]
     randomscale = (0.125, 0.25, 0.375, 0.5, 0.625, 0.75, 0.875, 1.0, 1.125, 1.25, 1.375, 1.5)
     
-    if dist.get_rank() == 0:
-        logger.info('n_workers_train: {}'.format(n_workers_train))
-        logger.info('n_workers_val: {}'.format(n_workers_val))
-        logger.info('use_boundary_2: {}'.format(use_boundary_2))
-        logger.info('use_boundary_4: {}'.format(use_boundary_4))
-        logger.info('use_boundary_8: {}'.format(use_boundary_8))
-        logger.info('use_boundary_16: {}'.format(use_boundary_16))
-        logger.info('mode: {}'.format(args.mode))
+    logger.info('n_workers_train: {}'.format(n_workers_train))
+    logger.info('n_workers_val: {}'.format(n_workers_val))
+    logger.info('use_boundary_2: {}'.format(use_boundary_2))
+    logger.info('use_boundary_4: {}'.format(use_boundary_4))
+    logger.info('use_boundary_8: {}'.format(use_boundary_8))
+    logger.info('use_boundary_16: {}'.format(use_boundary_16))
+    logger.info('mode: {}'.format(args.mode))
     
     # CityScapes数据处理,dspth根目录，cropsize裁剪大小,mode读取的数据，'train', 'val', 'test', 'trainval',随机裁剪
     ds = CityScapes(dspth, cropsize=cropsize, mode=mode, randomscale=randomscale)
     # 分布式训练数据集处理
-    sampler = torch.utils.data.distributed.DistributedSampler(ds)
+    # sampler = torch.utils.data.distributed.DistributedSampler(ds)
     dl = DataLoader(ds,
                     batch_size=n_img_per_gpu,
                     shuffle=False,
-                    sampler=sampler,
+                    # sampler=sampler,
                     num_workers=n_workers_train,
                     pin_memory=False,
                     drop_last=True)
     # exit(0)
     # 调取验证集
     dsval = CityScapes(dspth, mode='val', randomscale=randomscale)
-    sampler_val = torch.utils.data.distributed.DistributedSampler(dsval)
+    # sampler_val = torch.utils.data.distributed.DistributedSampler(dsval)
     dlval = DataLoader(dsval,
                        batch_size=2,
                        shuffle=False,
-                       sampler=sampler_val,
+                       # sampler=sampler_val,
                        num_workers=n_workers_val,
                        drop_last=False)
     
@@ -219,11 +218,11 @@ def train():
     net.cuda()
     net.train()
     # 分布式训练
-    net = nn.parallel.DistributedDataParallel(net,
-                                              device_ids=[args.local_rank, ],
-                                              output_device=args.local_rank,
-                                              find_unused_parameters=True
-                                              )
+    # net = nn.parallel.DistributedDataParallel(net,
+    #                                           device_ids=[args.local_rank, ],
+    #                                           output_device=args.local_rank,
+    #                                           find_unused_parameters=True
+    #                                           )
     
     score_thres = 0.7
     n_min = n_img_per_gpu * cropsize[0] * cropsize[1] // 16
@@ -243,12 +242,11 @@ def train():
     warmup_steps = args.warmup_steps
     warmup_start_lr = 1e-5
     
-    if dist.get_rank() == 0:
-        print('max_iter: ', max_iter)
-        print('save_iter_sep: ', save_iter_sep)
-        print('warmup_steps: ', warmup_steps)
+    print('max_iter: ', max_iter)
+    print('save_iter_sep: ', save_iter_sep)
+    print('warmup_steps: ', warmup_steps)
     optim = Optimizer(
-        model=net.module,
+        model=net,
         loss=boundary_loss_func,
         lr0=lr_start,
         momentum=momentum,
@@ -272,7 +270,7 @@ def train():
             if not im.size()[0] == n_img_per_gpu: raise StopIteration
         except StopIteration:
             epoch += 1
-            sampler.set_epoch(epoch)
+            # sampler.set_epoch(epoch)
             diter = iter(dl)
             im, lb = next(diter)
         im = im.cuda()
@@ -419,7 +417,7 @@ def train():
     save_pth = osp.join(save_pth_path, 'model_final.pth')
     net.cpu()
     state = net.module.state_dict() if hasattr(net, 'module') else net.state_dict()
-    if dist.get_rank() == 0: torch.save(state, save_pth)
+    torch.save(state, save_pth)
     logger.info('training done, model saved to: {}'.format(save_pth))
     print('epoch: ', epoch)
 
