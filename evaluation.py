@@ -38,13 +38,12 @@ class MscEvalV0(object):
             diter = enumerate(tqdm(dl))
         for i, (imgs, label) in diter:
             # 这里在测试中莫名奇妙的包了一层1,
-            N, _, H, W, _ = label.shape
+            N, _, H, W = label.shape
             
             label = label.squeeze(1).cuda()
             # 转换一下维度
-            label = label[:, :, :, 0]
             # 如上述所言
-            size = label.size()[-3:-1]
+            size = label.size()[-2:]
             
             imgs = imgs.cuda()
             
