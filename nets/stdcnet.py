@@ -148,7 +148,7 @@ class STDCNet1446(nn.Module):
             self.init_weight(pretrain_model)
         else:
             self.init_params()
-    
+    # 解析预训练包
     def init_weight(self, pretrain_model):
         
         state_dict = torch.load(pretrain_model)["state_dict"]

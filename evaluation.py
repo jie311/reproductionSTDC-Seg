@@ -275,5 +275,8 @@ if __name__ == "__main__":
     # use_boundary_2=False, use_boundary_4=False, use_boundary_8=True, use_boundary_16=False)
     
     # STDC2-Seg75 mIoU 0.7704
-    evaluatev0('./checkpoints/STDC2-Seg/model_maxmIOU75.pth', dspth='./data', backbone='STDCNet1446', scale=0.75,
+    # evaluatev0('./checkpoints/STDC2-Seg/model_maxmIOU75.pth', dspth='./data', backbone='STDCNet1446', scale=0.75,
+    #            use_boundary_2=False, use_boundary_4=False, use_boundary_8=True, use_boundary_16=False)
+    # 再训练
+    evaluatev0('./checkpoints/train_STDC2-Seg/pths/model_final.pth', dspth='./data', backbone='STDCNet1446', scale=0.75,
                use_boundary_2=False, use_boundary_4=False, use_boundary_8=True, use_boundary_16=False)
