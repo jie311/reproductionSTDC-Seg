@@ -387,8 +387,9 @@ def train():
                                 .format(it + 1, str(round(mIOU50, 4)), str(round(mIOU75, 4))))
             
             state = net.module.state_dict() if hasattr(net, 'module') else net.state_dict()
-            if dist.get_rank() == 0:
-                torch.save(state, save_pth)
+            
+            # if dist.get_rank() == 0:
+            torch.save(state, save_pth)
             
             logger.info('training iteration {}, model saved to: {}'.format(it + 1, save_pth))
             
@@ -396,8 +397,7 @@ def train():
                 maxmIOU50 = mIOU50
                 save_pth = osp.join(save_pth_path, 'model_maxmIOU50.pth'.format(it + 1))
                 state = net.module.state_dict() if hasattr(net, 'module') else net.state_dict()
-                if dist.get_rank() == 0:
-                    torch.save(state, save_pth)
+                torch.save(state, save_pth)
                 
                 logger.info('max mIOU model saved to: {}'.format(save_pth))
             
@@ -405,7 +405,7 @@ def train():
                 maxmIOU75 = mIOU75
                 save_pth = osp.join(save_pth_path, 'model_maxmIOU75.pth'.format(it + 1))
                 state = net.module.state_dict() if hasattr(net, 'module') else net.state_dict()
-                if dist.get_rank() == 0: torch.save(state, save_pth)
+                torch.save(state, save_pth)
                 logger.info('max mIOU model saved to: {}'.format(save_pth))
             
             logger.info('mIOU50 is: {}, mIOU75 is: {}'.format(mIOU50, mIOU75))
