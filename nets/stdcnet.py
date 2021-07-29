@@ -4,6 +4,40 @@ from torch.nn import init
 import math
 
 
+# add indexnet
+class HolisticIndexBlock(nn.Module):
+    def __init__(self, inp, use_nonlinear=False, use_context=False, batch_norm=None):
+        super(HolisticIndexBlock, self).__init__()
+        
+        BatchNorm2d = batch_norm
+        
+        if use_context:
+            kernel_size, padding = 4, 1
+        else:
+            kernel_size, padding = 2, 0
+        
+        if use_nonlinear:
+            self.indexnet = nn.Sequential(
+                nn.Conv2d(inp, 2 * inp, kernel_size=kernel_size, stride=2, padding=padding, bias=False),
+                BatchNorm2d(2 * inp),
+                nn.ReLU6(inplace=True),
+                nn.Conv2d(2 * inp, 4, kernel_size=1, stride=1, padding=0, bias=False)
+            )
+        else:
+            self.indexnet = nn.Conv2d(inp, 4, kernel_size=kernel_size, stride=2, padding=padding, bias=False)
+    
+    def forward(self, x):
+        x = self.indexnet(x)
+        
+        y = torch.sigmoid(x)
+        z = F.softmax(y, dim=1)
+        
+        idx_en = F.pixel_shuffle(z, 2)
+        idx_de = F.pixel_shuffle(y, 2)
+        
+        return idx_en, idx_de
+
+
 # 老熟人了ConvX
 class ConvX(nn.Module):
     def __init__(self, in_planes, out_planes, kernel=3, stride=1):
@@ -126,6 +160,10 @@ class STDCNet1446(nn.Module):
             block = CatBottleneck
         elif type == "add":
             block = AddBottleneck
+        
+        # index net 包后面引入
+        index_block = HolisticIndexBlock
+        BatchNorm2d = SynchronizedBatchNorm2d
         self.use_conv_last = use_conv_last
         # 此为conx到最小的块
         self.features = self._make_layers(base, layers, block_num, block)
@@ -143,11 +181,14 @@ class STDCNet1446(nn.Module):
         self.x16 = nn.Sequential(self.features[6:11])
         self.x32 = nn.Sequential(self.features[11:])
         
+        self.index0 = index_block(32, use_nonlinear=True, use_context=True, batch_norm=BatchNorm2d)
+        
         if pretrain_model:
             print('use pretrain model {}'.format(pretrain_model))
             self.init_weight(pretrain_model)
         else:
             self.init_params()
+    
     # 解析预训练包
     def init_weight(self, pretrain_model):
         
@@ -173,8 +214,8 @@ class STDCNet1446(nn.Module):
     
     def _make_layers(self, base, layers, block_num, block):
         features = []
-        features += [ConvX(3, base // 2, 3, 2)]
-        features += [ConvX(base // 2, base, 3, 2)]
+        features += [ConvX(3, base // 2, 3, 2)]  # channal 64 -> 8
+        features += [ConvX(base // 2, base, 3, 2)]  # channal 8-> 64
         
         for i, layer in enumerate(layers):
             for j in range(layer):
@@ -187,11 +228,17 @@ class STDCNet1446(nn.Module):
         
         return nn.Sequential(*features)
     
+    # 在此处添加
+    
     def forward(self, x):
         feat2 = self.x2(x)
+        print(feat2.shape)
         feat4 = self.x4(feat2)
+        print(feat4.shape)
         feat8 = self.x8(feat4)
+        print(feat8.shape)
         feat16 = self.x16(feat8)
+        print(feat16.shape)
         feat32 = self.x32(feat16)
         if self.use_conv_last:
             feat32 = self.conv_last(feat32)
