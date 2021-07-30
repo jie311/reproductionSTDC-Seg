@@ -333,7 +333,11 @@ class BiSeNet(nn.Module):
         feat_out16 = self.conv_out16(feat_cp8)
         feat_out32 = self.conv_out32(feat_cp16)
 
-        feat_out = F.interpolate(feat_out * idx1_de, (H, W),
+        feat_out = F.interpolate(feat_out, (H // 2, W // 2),
+                                 mode='bilinear',
+                                 align_corners=True)
+
+        feat_out = F.interpolate(feat_out * idx0_de, (H, W),
                                  mode='bilinear',
                                  align_corners=True)
 
