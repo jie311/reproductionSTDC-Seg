@@ -142,16 +142,16 @@ def parse_args():
 
 def train():
     args = parse_args()
-    
+
     save_pth_path = os.path.join(args.respath, 'pths')
     dspth = './data'
-    
+
     print(save_pth_path)
     # print(osp.exists(save_pth_path))
-    # if not osp.exists(save_pth_path) and dist.get_rank()==0: 
+    # if not osp.exists(save_pth_path) and dist.get_rank()==0:
     if not osp.exists(save_pth_path):
         os.makedirs(save_pth_path)
-    
+
     torch.cuda.set_device(args.local_rank)
     # 分布式训练使用TCP
     # dist.init_process_group(
@@ -160,9 +160,9 @@ def train():
     #     world_size=torch.cuda.device_count(),
     #     rank=args.local_rank
     # )
-    
+
     setup_logger(args.respath)
-    ## dataset
+    # dataset
     n_classes = 19
     n_img_per_gpu = args.n_img_per_gpu
     n_workers_train = args.n_workers_train
@@ -171,11 +171,12 @@ def train():
     use_boundary_8 = args.use_boundary_8
     use_boundary_4 = args.use_boundary_4
     use_boundary_2 = args.use_boundary_2
-    
+
     mode = args.mode
     cropsize = [1024, 512]
-    randomscale = (0.125, 0.25, 0.375, 0.5, 0.625, 0.75, 0.875, 1.0, 1.125, 1.25, 1.375, 1.5)
-    
+    randomscale = (0.125, 0.25, 0.375, 0.5, 0.625, 0.75, 0.875, 1.0, 1.125,
+                   1.25, 1.375, 1.5)
+
     logger.info('n_workers_train: {}'.format(n_workers_train))
     logger.info('n_workers_val: {}'.format(n_workers_val))
     logger.info('use_boundary_2: {}'.format(use_boundary_2))
@@ -183,35 +184,45 @@ def train():
     logger.info('use_boundary_8: {}'.format(use_boundary_8))
     logger.info('use_boundary_16: {}'.format(use_boundary_16))
     logger.info('mode: {}'.format(args.mode))
-    
+
     # CityScapes数据处理,dspth根目录，cropsize裁剪大小,mode读取的数据，'train', 'val', 'test', 'trainval',随机裁剪
-    ds = CityScapes(dspth, cropsize=cropsize, mode=mode, randomscale=randomscale)
+    ds = CityScapes(dspth,
+                    cropsize=cropsize,
+                    mode=mode,
+                    randomscale=randomscale)
     # 分布式训练数据集处理
     # sampler = torch.utils.data.distributed.DistributedSampler(ds)
-    dl = DataLoader(ds,
-                    batch_size=n_img_per_gpu,
-                    shuffle=False,
-                    # sampler=sampler,
-                    num_workers=n_workers_train,
-                    pin_memory=False,
-                    drop_last=True)
+    dl = DataLoader(
+        ds,
+        batch_size=n_img_per_gpu,
+        shuffle=False,
+        # sampler=sampler,
+        num_workers=n_workers_train,
+        pin_memory=False,
+        drop_last=True)
     # exit(0)
     # 调取验证集
     dsval = CityScapes(dspth, mode='val', randomscale=randomscale)
     # sampler_val = torch.utils.data.distributed.DistributedSampler(dsval)
-    dlval = DataLoader(dsval,
-                       batch_size=2,
-                       shuffle=False,
-                       # sampler=sampler_val,
-                       num_workers=n_workers_val,
-                       drop_last=False)
-    
-    ## model
+    dlval = DataLoader(
+        dsval,
+        batch_size=2,
+        shuffle=False,
+        # sampler=sampler_val,
+        num_workers=n_workers_val,
+        drop_last=False)
+
+    # model
     ignore_idx = 255
     # 初始化模型
-    net = BiSeNet(backbone=args.backbone, n_classes=n_classes, pretrain_model=args.pretrain_path,
-                  use_boundary_2=use_boundary_2, use_boundary_4=use_boundary_4, use_boundary_8=use_boundary_8,
-                  use_boundary_16=use_boundary_16, use_conv_last=args.use_conv_last)
+    net = BiSeNet(backbone=args.backbone,
+                  n_classes=n_classes,
+                  pretrain_model=args.pretrain_path,
+                  use_boundary_2=use_boundary_2,
+                  use_boundary_4=use_boundary_4,
+                  use_boundary_8=use_boundary_8,
+                  use_boundary_16=use_boundary_16,
+                  use_conv_last=args.use_conv_last)
     # 加载模型权重
     if not args.ckpt is None:
         net.load_state_dict(torch.load(args.ckpt, map_location='cpu'))
@@ -223,14 +234,20 @@ def train():
     #                                           output_device=args.local_rank,
     #                                           find_unused_parameters=True
     #                                           )
-    
+
     score_thres = 0.7
     n_min = n_img_per_gpu * cropsize[0] * cropsize[1] // 16
-    criteria_p = OhemCELoss(thresh=score_thres, n_min=n_min, ignore_lb=ignore_idx)
-    criteria_16 = OhemCELoss(thresh=score_thres, n_min=n_min, ignore_lb=ignore_idx)
-    criteria_32 = OhemCELoss(thresh=score_thres, n_min=n_min, ignore_lb=ignore_idx)
+    criteria_p = OhemCELoss(thresh=score_thres,
+                            n_min=n_min,
+                            ignore_lb=ignore_idx)
+    criteria_16 = OhemCELoss(thresh=score_thres,
+                             n_min=n_min,
+                             ignore_lb=ignore_idx)
+    criteria_32 = OhemCELoss(thresh=score_thres,
+                             n_min=n_min,
+                             ignore_lb=ignore_idx)
     boundary_loss_func = DetailAggregateLoss()
-    ## optimizer
+    # optimizer
     maxmIOU50 = 0.
     maxmIOU75 = 0.
     momentum = 0.9
@@ -241,22 +258,21 @@ def train():
     power = 0.9
     warmup_steps = args.warmup_steps
     warmup_start_lr = 1e-5
-    
+
     print('max_iter: ', max_iter)
     print('save_iter_sep: ', save_iter_sep)
     print('warmup_steps: ', warmup_steps)
-    optim = Optimizer(
-        model=net,
-        loss=boundary_loss_func,
-        lr0=lr_start,
-        momentum=momentum,
-        wd=weight_decay,
-        warmup_steps=warmup_steps,
-        warmup_start_lr=warmup_start_lr,
-        max_iter=max_iter,
-        power=power)
-    
-    ## train loop
+    optim = Optimizer(model=net,
+                      loss=boundary_loss_func,
+                      lr0=lr_start,
+                      momentum=momentum,
+                      wd=weight_decay,
+                      warmup_steps=warmup_steps,
+                      warmup_start_lr=warmup_start_lr,
+                      max_iter=max_iter,
+                      power=power)
+
+    # train loop
     msg_iter = 50
     loss_avg = []
     loss_boundery_bce = []
@@ -277,59 +293,63 @@ def train():
         lb = lb.cuda()
         H, W = im.size()[2:]
         lb = torch.squeeze(lb, 1)
-        
+
         optim.zero_grad()
-        
+
         if use_boundary_2 and use_boundary_4 and use_boundary_8:
             out, out16, out32, detail2, detail4, detail8 = net(im)
-        
+
         if (not use_boundary_2) and use_boundary_4 and use_boundary_8:
             out, out16, out32, detail4, detail8 = net(im)
-        
+
         if (not use_boundary_2) and (not use_boundary_4) and use_boundary_8:
             out, out16, out32, detail8 = net(im)
-        
-        if (not use_boundary_2) and (not use_boundary_4) and (not use_boundary_8):
+
+        if (not use_boundary_2) and (not use_boundary_4) and (
+                not use_boundary_8):
             out, out16, out32 = net(im)
-        
+
         lossp = criteria_p(out, lb)
         loss2 = criteria_16(out16, lb)
         loss3 = criteria_32(out32, lb)
-        
+
         boundery_bce_loss = 0.
         boundery_dice_loss = 0.
-        
+
         if use_boundary_2:
             # if dist.get_rank()==0:
             #     print('use_boundary_2')
-            boundery_bce_loss2, boundery_dice_loss2 = boundary_loss_func(detail2, lb)
+            boundery_bce_loss2, boundery_dice_loss2 = boundary_loss_func(
+                detail2, lb)
             boundery_bce_loss += boundery_bce_loss2
             boundery_dice_loss += boundery_dice_loss2
-        
+
         if use_boundary_4:
             # if dist.get_rank()==0:
             #     print('use_boundary_4')
-            boundery_bce_loss4, boundery_dice_loss4 = boundary_loss_func(detail4, lb)
+            boundery_bce_loss4, boundery_dice_loss4 = boundary_loss_func(
+                detail4, lb)
             boundery_bce_loss += boundery_bce_loss4
             boundery_dice_loss += boundery_dice_loss4
-        
+
         if use_boundary_8:
             # if dist.get_rank()==0:
             #     print('use_boundary_8')
-            boundery_bce_loss8, boundery_dice_loss8 = boundary_loss_func(detail8, lb)
+            boundery_bce_loss8, boundery_dice_loss8 = boundary_loss_func(
+                detail8, lb)
             boundery_bce_loss += boundery_bce_loss8
             boundery_dice_loss += boundery_dice_loss8
-        
+
         loss = lossp + loss2 + loss3 + boundery_bce_loss + boundery_dice_loss
-        
+
         loss.backward()
         optim.step()
         # 添加loss数据
         loss_avg.append(loss.item())
-        
+
         loss_boundery_bce.append(boundery_bce_loss.item())
         loss_boundery_dice.append(boundery_dice_loss.item())
-        
+
         ## print training log message
         if (it + 1) % msg_iter == 0:
             loss_avg = sum(loss_avg) / len(loss_avg)
@@ -338,9 +358,11 @@ def train():
             t_intv, glob_t_intv = ed - st, ed - glob_st
             eta = int((max_iter - it) * (glob_t_intv / it))
             eta = str(datetime.timedelta(seconds=eta))
-            
-            loss_boundery_bce_avg = sum(loss_boundery_bce) / len(loss_boundery_bce)
-            loss_boundery_dice_avg = sum(loss_boundery_dice) / len(loss_boundery_dice)
+
+            loss_boundery_bce_avg = sum(loss_boundery_bce) / len(
+                loss_boundery_bce)
+            loss_boundery_dice_avg = sum(loss_boundery_dice) / len(
+                loss_boundery_dice)
             msg = ', '.join([
                 'it: {it}/{max_it}',
                 'lr: {lr:4f}',
@@ -349,17 +371,15 @@ def train():
                 'boundery_dice_loss: {boundery_dice_loss:.4f}',
                 'eta: {eta}',
                 'time: {time:.4f}',
-            ]).format(
-                it=it + 1,
-                max_it=max_iter,
-                lr=lr,
-                loss=loss_avg,
-                boundery_bce_loss=loss_boundery_bce_avg,
-                boundery_dice_loss=loss_boundery_dice_avg,
-                time=t_intv,
-                eta=eta
-            )
-            
+            ]).format(it=it + 1,
+                      max_it=max_iter,
+                      lr=lr,
+                      loss=loss_avg,
+                      boundery_bce_loss=loss_boundery_bce_avg,
+                      boundery_dice_loss=loss_boundery_dice_avg,
+                      time=t_intv,
+                      eta=eta)
+
             logger.info(msg)
             loss_avg = []
             loss_boundery_bce = []
@@ -367,56 +387,65 @@ def train():
             st = ed
             # print(boundary_loss_func.get_params())
         if (it + 1) % save_iter_sep == 0:  # and it != 0:
-            
+
             ## 验证model
             logger.info('evaluating the model ...')
             logger.info('setup and restore model')
-            
+
             net.eval()
-            
+
             # ## evaluator
             logger.info('compute the mIOU')
             with torch.no_grad():
                 single_scale1 = MscEvalV0()
                 mIOU50 = single_scale1(net, dlval, n_classes)
-                
+
                 single_scale2 = MscEvalV0(scale=0.75)
                 mIOU75 = single_scale2(net, dlval, n_classes)
-            
-            save_pth = osp.join(save_pth_path, 'model_iter{}_mIOU50_{}_mIOU75_{}.pth'
-                                .format(it + 1, str(round(mIOU50, 4)), str(round(mIOU75, 4))))
-            
-            state = net.module.state_dict() if hasattr(net, 'module') else net.state_dict()
-            
+
+            save_pth = osp.join(
+                save_pth_path, 'model_iter{}_mIOU50_{}_mIOU75_{}.pth'.format(
+                    it + 1, str(round(mIOU50, 4)), str(round(mIOU75, 4))))
+
+            state = net.module.state_dict() if hasattr(
+                net, 'module') else net.state_dict()
+
             # if dist.get_rank() == 0:
             torch.save(state, save_pth)
-            
-            logger.info('training iteration {}, model saved to: {}'.format(it + 1, save_pth))
-            
+
+            logger.info('training iteration {}, model saved to: {}'.format(
+                it + 1, save_pth))
+
             if mIOU50 > maxmIOU50:
                 maxmIOU50 = mIOU50
-                save_pth = osp.join(save_pth_path, 'model_maxmIOU50.pth'.format(it + 1))
-                state = net.module.state_dict() if hasattr(net, 'module') else net.state_dict()
+                save_pth = osp.join(save_pth_path,
+                                    'model_maxmIOU50.pth'.format(it + 1))
+                state = net.module.state_dict() if hasattr(
+                    net, 'module') else net.state_dict()
                 torch.save(state, save_pth)
-                
+
                 logger.info('max mIOU model saved to: {}'.format(save_pth))
-            
+
             if mIOU75 > maxmIOU75:
                 maxmIOU75 = mIOU75
-                save_pth = osp.join(save_pth_path, 'model_maxmIOU75.pth'.format(it + 1))
-                state = net.module.state_dict() if hasattr(net, 'module') else net.state_dict()
+                save_pth = osp.join(save_pth_path,
+                                    'model_maxmIOU75.pth'.format(it + 1))
+                state = net.module.state_dict() if hasattr(
+                    net, 'module') else net.state_dict()
                 torch.save(state, save_pth)
                 logger.info('max mIOU model saved to: {}'.format(save_pth))
-            
+
             logger.info('mIOU50 is: {}, mIOU75 is: {}'.format(mIOU50, mIOU75))
-            logger.info('maxmIOU50 is: {}, maxmIOU75 is: {}.'.format(maxmIOU50, maxmIOU75))
-            
+            logger.info('maxmIOU50 is: {}, maxmIOU75 is: {}.'.format(
+                maxmIOU50, maxmIOU75))
+
             net.train()
-    
+
     ## dump the final model
     save_pth = osp.join(save_pth_path, 'model_final.pth')
     net.cpu()
-    state = net.module.state_dict() if hasattr(net, 'module') else net.state_dict()
+    state = net.module.state_dict() if hasattr(net,
+                                               'module') else net.state_dict()
     torch.save(state, save_pth)
     logger.info('training done, model saved to: {}'.format(save_pth))
     print('epoch: ', epoch)
