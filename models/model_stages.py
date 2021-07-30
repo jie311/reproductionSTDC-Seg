@@ -340,8 +340,13 @@ class BiSeNet(nn.Module):
         feat_out = F.interpolate(feat_out * idx0_de, (H, W),
                                  mode='bilinear',
                                  align_corners=True)
-
+        feat_out16 = F.interpolate(feat_out16, (H // 4, W // 4),
+                                   mode='bilinear',
+                                   align_corners=True)
         feat_out16 = F.interpolate(feat_out16 * idx1_de, (H, W),
+                                   mode='bilinear',
+                                   align_corners=True)
+        feat_out32 = F.interpolate(feat_out32, (H // 8, W // 8),
                                    mode='bilinear',
                                    align_corners=True)
         feat_out32 = F.interpolate(feat_out32 * idx2_de, (H, W),
