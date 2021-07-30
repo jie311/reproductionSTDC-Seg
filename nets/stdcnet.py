@@ -316,11 +316,11 @@ class STDCNet1446(nn.Module):
 
         # /4
         feat4 = self.x4(idx_feat2)
-        idx1_en, idx1_de = self.index0(feat4)
+        idx1_en, idx1_de = self.index1(feat4)
         idx_feat4 = idx1_en * feat4
 
         feat8 = self.x8(idx_feat4)
-        idx2_en, idx2_de = self.index0(feat8)
+        idx2_en, idx2_de = self.index2(feat8)
         idx_feat8 = idx2_en * feat8
         feat16 = self.x16(idx_feat8)
         feat32 = self.x32(feat16)
