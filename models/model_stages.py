@@ -185,7 +185,7 @@ class ContextPath(nn.Module):
         feat16_up = F.interpolate(feat16_sum, (H8, W8), mode='nearest')
         feat16_up = self.conv_head16(feat16_up)
 
-        return feat2, feat4, feat8, feat16, feat16_up, feat32_up  # x8, x16
+        return feat2, feat4, feat8, feat16, feat16_up, feat32_up, idx0_de, idx1_de, idx2_de  # x8, x16
 
     def init_weight(self):
         for ly in self.children():
@@ -316,7 +316,7 @@ class BiSeNet(nn.Module):
     def forward(self, x):
         H, W = x.size()[2:]
 
-        feat_res2, feat_res4, feat_res8, feat_res16, feat_cp8, feat_cp16 = self.cp(
+        feat_res2, feat_res4, feat_res8, feat_res16, feat_cp8, feat_cp16, idx0_de, idx1_de, idx2_de = self.cp(
             x)
 
         feat_out_sp2 = self.conv_out_sp2(feat_res2)
@@ -332,10 +332,11 @@ class BiSeNet(nn.Module):
         feat_out = self.conv_out(feat_fuse)
         feat_out16 = self.conv_out16(feat_cp8)
         feat_out32 = self.conv_out32(feat_cp16)
-
+        print(feat_out32.shape)
         feat_out = F.interpolate(feat_out, (H, W),
                                  mode='bilinear',
                                  align_corners=True)
+
         feat_out16 = F.interpolate(feat_out16, (H, W),
                                    mode='bilinear',
                                    align_corners=True)
