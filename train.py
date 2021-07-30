@@ -9,10 +9,7 @@ from evaluation import MscEvalV0
 from optimizer_loss import Optimizer
 
 import torch
-import torch.nn as nn
 from torch.utils.data import DataLoader
-import torch.nn.functional as F
-import torch.distributed as dist
 
 import os
 import os.path as osp
@@ -224,8 +221,9 @@ def train():
                   use_boundary_16=use_boundary_16,
                   use_conv_last=args.use_conv_last)
     # 加载模型权重
-    if not args.ckpt is None:
-        net.load_state_dict(torch.load(args.ckpt, map_location='cpu'))
+    if args.ckpt is not None:
+        net.load_state_dict(torch.load(args.ckpt, map_location='cpu'),
+                            strict=False)
     net.cuda()
     net.train()
     # 分布式训练
@@ -283,7 +281,8 @@ def train():
     for it in range(max_iter):
         try:
             im, lb = next(diter)
-            if not im.size()[0] == n_img_per_gpu: raise StopIteration
+            if im.size()[0] != n_img_per_gpu:
+                raise StopIteration
         except StopIteration:
             epoch += 1
             # sampler.set_epoch(epoch)
@@ -350,7 +349,7 @@ def train():
         loss_boundery_bce.append(boundery_bce_loss.item())
         loss_boundery_dice.append(boundery_dice_loss.item())
 
-        ## print training log message
+        # print training log message
         if (it + 1) % msg_iter == 0:
             loss_avg = sum(loss_avg) / len(loss_avg)
             lr = optim.lr
@@ -388,7 +387,7 @@ def train():
             # print(boundary_loss_func.get_params())
         if (it + 1) % save_iter_sep == 0:  # and it != 0:
 
-            ## 验证model
+            # 验证model
             logger.info('evaluating the model ...')
             logger.info('setup and restore model')
 
